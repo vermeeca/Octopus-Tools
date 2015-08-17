@@ -56,6 +56,8 @@ namespace OctopusTools.Commands
         public string VersionPrerelease { get; set; }
         public PrereleaseFallbackMode PrereleaseFallbackMode { get; set; }
 
+        
+
         protected override void Execute()
         {
             if (string.IsNullOrWhiteSpace(ProjectName)) throw new CommandException("Please specify a project name using the parameter: --project=XYZ");
@@ -96,9 +98,20 @@ namespace OctopusTools.Commands
                     IEnumerable<PackageResource> packages;
                     if (!string.IsNullOrWhiteSpace(VersionPrerelease))
                     {
+                        var allPackagesForCount = Repository.Client.Get<ResourceCollection<PackageResource>>(Repository.Client.RootDocument.Link("Packages"), new { nuGetPackageId = unresolved.PackageId });
+
                         var allPackages = Repository.Client.Get<List<PackageResource>>(feed.Link("SearchTemplate"), new {packageId = unresolved.PackageId}).Where(p => p.NuGetPackageId == unresolved.PackageId).ToList();
 
-                        packages = allPackages.Where(p => p.Version.EndsWith("-" + VersionPrerelease)).ToList();
+                        //ugh
+                        packages = allPackages.Where(p => p.Version.EndsWith("-" + VersionPrerelease));
+                        if (!packages.Any())
+                        {
+                            //if there weren't any, the version we're searching for could have fallen off the first page.  Get all of them just in case
+                            allPackages = Repository.Client.Get<List<PackageResource>>(feed.Link("SearchTemplate"), new {packageId = unresolved.PackageId, take=allPackagesForCount.TotalResults}).Where(p => p.NuGetPackageId == unresolved.PackageId).ToList();
+                        }
+                        
+                        packages = allPackages.Where(p => p.Version.EndsWith("-" + VersionPrerelease));
+
                         if (!packages.Any() && PrereleaseFallbackMode == PrereleaseFallbackMode.Latest)
                         {
                             packages = allPackages;
@@ -108,7 +121,7 @@ namespace OctopusTools.Commands
                         packages = Repository.Client.Get<List<PackageResource>>(feed.Link("VersionsTemplate"), new {packageIds = new[] {unresolved.PackageId}});
                     var version = packages.FirstOrDefault();
 
-                    if (version == null)
+                        if (version == null)
                     {
                         Log.ErrorFormat("Could not find any packages with ID '{0}' in the feed '{1}'", unresolved.PackageId, feed.FeedUri);
                     }
