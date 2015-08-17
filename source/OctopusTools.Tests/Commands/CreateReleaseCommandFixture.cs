@@ -21,8 +21,13 @@ namespace OctopusTools.Tests.Commands
         {
             command = new CreateReleaseCommand(RepositoryFactory, Log, new PackageVersionResolver(Log));
 
+            Repository.Client.RootDocument.Returns(new RootResource(){Links = new LinkCollection() {{"Packages", new Href("packages")}}});
+
             //fake project
-            Repository.Projects.FindByName("ProjectA").Returns(info => new ProjectResource("projecta", "ProjectA", "a") {DeploymentProcessId = "deploymentprocess1"});
+            Repository.Projects.FindByName("ProjectA").Returns(info => new ProjectResource("projecta", "ProjectA", "a")
+            {
+                DeploymentProcessId = "deploymentprocess1",
+            });
 
             //fake deployment process
             Repository.DeploymentProcesses.Get("deploymentprocess1").Returns(new DeploymentProcessResource()
@@ -51,6 +56,7 @@ namespace OctopusTools.Tests.Commands
                 }
             });
 
+            Repository.Client.Get<ResourceCollection<PackageResource>>(Repository.Client.RootDocument.Link("Packages"), Arg.Any<object>()).Returns(new ResourceCollection<PackageResource>(Enumerable.Empty<PackageResource>(), new LinkCollection()) {TotalResults = 0});
 
         }
 
